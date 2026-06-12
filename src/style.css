@@ -1,0 +1,144 @@
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #f7f8fa 0%, #ffffff 100%);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+               "Helvetica Neue", sans-serif;
+  color: #1d1d1f;
+}
+
+.app {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.canvas-area {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+canvas {
+  border-radius: 22px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.08);
+}
+
+/* 输入条 */
+
+.input-area {
+  position: absolute;
+  bottom: 90px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.voice-bar {
+  display: flex;
+  align-items: center;
+  width: 580px;
+  padding: 18px 24px;
+  border-radius: 40px;
+
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(40px);
+
+  box-shadow: 0 15px 45px rgba(0,0,0,0.07);
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+/* ✅ 流动玻璃小球 */
+
+.status-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  margin-right: 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.status-dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+
+  background: conic-gradient(
+    from 0deg,
+    #4f8cff,
+    #60a5fa,
+    #a78bfa,
+    #4f8cff
+  );
+
+  animation: liquidRotate 4s linear infinite;
+}
+
+.status-dot::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.35);
+  backdrop-filter: blur(8px);
+}
+
+/* 外发光 */
+
+.status-dot.active {
+  box-shadow:
+    0 0 15px rgba(79,140,255,0.6),
+    0 0 30px rgba(79,140,255,0.3);
+}
+
+@keyframes liquidRotate {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 文本 */
+
+.voice-text {
+  flex: 1;
+  font-size: 16px;
+  color: #3a3a3c;
+  letter-spacing: 0.2px;
+}
+
+/* ✅ 麦克风升级版 */
+
+.mic-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background: linear-gradient(145deg, #ffffff, #e5e5ea);
+  font-size: 22px;
+  cursor: pointer;
+
+  box-shadow:
+    0 6px 18px rgba(0,0,0,0.08),
+    inset -2px -2px 4px rgba(255,255,255,0.8),
+    inset 2px 2px 4px rgba(0,0,0,0.05);
+
+  transition: all 0.25s ease;
+}
+
+.mic-button:hover {
+  transform: scale(1.15);
+  box-shadow:
+    0 10px 24px rgba(0,0,0,0.12),
+    inset -2px -2px 4px rgba(255,255,255,0.8),
+    inset 2px 2px 4px rgba(0,0,0,0.05);
+}
+
+.mic-button:active {
+  transform: scale(0.92);
+}
