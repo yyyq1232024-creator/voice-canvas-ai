@@ -1,33 +1,52 @@
-import { useCallback } from "react"
-import { useSpeechRecognition } from "./useSpeechRecognition"
-import { parseTextToCommands } from "../../core/parser/simpleParser"
-import { globalQueue } from "../../core/command/globalQueue"
+import type { AppStatus } from "../../types/status"
 
-export default function VoiceController() {
+interface Props {
+  transcript:  string
+  isListening: boolean
+  status:      AppStatus
+  onStart:     () => void
+}
 
-  const handleVoiceCommand = useCallback((text: string) => {
-    const commands = parseTextToCommands(text)
-    commands.forEach((cmd) => globalQueue.enqueue(cmd))
-  }, [])
+export default function VoiceController({
+  transcript,
+  isListening,
+  status,
+  onStart,
+}: Props) {
 
-  const { transcript, isListening } =
-    useSpeechRecognition(handleVoiceCommand)
-
-  const startVoice = () => {
-    window.dispatchEvent(new Event("start-voice"))
-  }
+  const isProcessing = status === "generating"
+  const isDisabled   = isProcessing
 
   return (
     <div className="voice-bar">
 
-      <div className={`status-dot ${isListening ? "active" : ""}`} />
+      {/* 状态球 */}
+      <div className={[
+        "status-dot",
+        isListening  ? "active"   : "",
+        isProcessing ? "pulsing"  : "",
+      ].join(" ")} />
 
-      <div className="voice-text">
-        {transcript || "Say something..."}
+      {/* 文字区域 */}
+      <div className={[
+        "voice-text",
+        status === "error"      ? "voice-text--error"      : "",
+        status === "generating" ? "voice-text--processing" : "",
+      ].join(" ")}>
+        {transcript}
       </div>
 
-      <div className="mic-button" onClick={startVoice}>
-        🎙
+      {/* 麦克风按钮 */}
+      <div
+        className={[
+          "mic-button",
+          isListening ? "listening" : "",
+          isDisabled  ? "disabled"  : "",
+        ].join(" ")}
+        onClick={isDisabled ? undefined : onStart}
+        title={isDisabled ? "生成中，请稍候" : "点击开始语音"}
+      >
+        <div className="mic-icon-line" />
       </div>
 
     </div>
