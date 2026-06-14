@@ -1,73 +1,157 @@
-# React + TypeScript + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Voice Canvas — 语音控制 AI 绘图应用
+ 
+基于语音指令，通过 LLM 提示词优化与通义万相图像生成模型，实现"说话即作画"的交互体验。
+ 
+---
+ 
+## 一、技术架构
+ 
 ```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+语音输入 (Web Speech API)
+    │
+    ▼
+中文口语文本 (transcript)
+    │
+    ├── 纯几何指令？──是──▶ 本地 Canvas 直接绘制（圆/方/三角）
+    │
+    └── 否
+        │
+        ▼
+   通义千问 qwen-turbo（提示词优化层）
+   口语 → 结构化英文 Prompt（含画风/光照/质量词 + 负面提示词）
+        │
+        ▼
+   通义万相 wanx-v1（异步任务）
+   提交任务 → 轮询结果 → 返回图片URL
+        │
+        ▼
+   后端代理转发图片（解决跨域）
+        │
+        ▼
+   Canvas 渲染展示
 ```
+ 
+整体为 **前端（React + Vite + TypeScript）+ 后端（Express）** 架构，前端负责语音采集、UI 交互与动画，所有 AI 调用统一在后端 `server.js` 中完成，避免 API Key 暴露在浏览器。
+ 
+---
+ 
+## 二、环境配置
+ 
+### 2.1 前置要求
+ 
+| 依赖 | 版本要求 | 说明 |
+|---|---|---|
+| Node.js | 18+ | 推荐 18 或 20 LTS |
+| 浏览器 | Chrome / Edge | 语音识别依赖 `webkitSpeechRecognition`，Safari/Firefox 不支持 |
+| 阿里云百炼账号 | - | 需开通**按量付费**模式 |
+ 
+### 2.2 阿里云百炼 API Key 获取
+ 
+1. 访问 [https://bailian.console.aliyun.com/](https://bailian.console.aliyun.com/)，使用阿里云账号登录
+2. 进入「模型广场」，搜索并开通以下两个模型的服务：
+   - `wanx-v1`（通义万相，文生图）
+   - `qwen-turbo`（通义千问，用于提示词优化）
+   - 两者均有免费额度（90天内有效，万相500张，千问100万 tokens）
+3. 进入左侧菜单「API-KEY」，创建一个**按量付费模式**的 API Key
+   - 正确格式：`sk-` + 纯字母数字（如 `sk-1a2b3c4d5e6f7g8h9i0j...`）
+   - 注意：如果账号同时订阅了「Token Plan」，会额外生成 `sk-ws-` 格式的 Key——这种 Key 仅限在 AI 编程工具内交互使用，禁止用于自建后端调用，会被风控封禁，必须使用普通的 `sk-xxxxx` Key
+### 2.3 环境变量配置
+ 
+在项目根目录创建两个文件：
+ 
+**`.env`**（后端 `server.js` 使用）
+```
+DASHSCOPE_API_KEY=sk-你的Key
+```
+ 
+**`.env.local`**（前端 Vite 使用，如有前端直连场景）
+```
+VITE_DASHSCOPE_API_KEY=sk-你的Key
+```
+ 
+注意：保存为 UTF-8（不带 BOM）格式，否则 Node 的 dotenv 可能读取失败导致 401。
+ 
+### 2.4 安装与启动
+ 
+```bash
+# 安装依赖
+npm install
+ 
+# 启动后端（终端1）
+node server.js
+# 输出: Server running on http://localhost:3001
+ 
+# 启动前端（终端2）
+npm run dev
+```
+ 
+浏览器打开前端地址，首次使用会弹出两次麦克风授权请求（语音识别 + 实时音量检测），均需允许。
+ 
+---
+ 
+## 三、指令能力：计划 vs 实现
+ 
+### 3.1 计划支持的指令能力
+ 
+项目初期参考"画图工具型"交互设计了一套完整的本地命令系统，计划支持：
+ 
+- 自然语言描述生图（如"画一只森林里的猫，动漫风格"）
+- 画风切换（油画 / 水彩 / 动漫 / 赛博朋克 / 写实 / 素描）
+- 颜色与位置指定（"在左上角画一个红色圆形"）
+- 连续多指令解析（"先画一个圆，然后再画一个三角形"）
+- 撤销 / 重做 / 清空画布
+- 图层叠加式增量绘制
+### 3.2 最终实现情况
+ 
+**已实现：**
+ 
+| 功能 | 说明 |
+|---|---|
+| 语音转文字 | Web Speech API，`continuous` 模式持续监听，自动重启 |
+| 实时音量检测 | Web Audio API `AnalyserNode`，驱动麦克风按钮的光环动画 |
+| LLM 提示词优化 | 通义千问 qwen-turbo，将中文口语转换为结构化英文 Prompt + 负面提示词 |
+| 画风映射 | 油画/水彩/动漫/赛博朋克/写实/素描 → 对应英文风格关键词 |
+| AI 图像生成 | 通义万相 wanx-v1，异步任务提交 + 轮询（最长60秒超时） |
+| 图片代理 | 后端 `/proxy-image` 转发，解决阿里云 OSS 图片跨域问题 |
+| 纯几何快速绘制 | "画一个圆形/正方形/三角形" 等指令本地 Canvas 即时绘制，不走 AI |
+| 3D 渐变状态指示 | 玻璃球用 conic-gradient + radial-gradient 实现旋转高光效果，三态变化（待机/监听/生成中） |
+| 生成中状态锁定 | AI 处理期间麦克风自动禁用并暂停语音重启，避免误触发 |
+ 
+**未完成 / 简化部分及原因：**
+ 
+| 功能 | 原因说明 |
+|---|---|
+| 命令系统（Command / CommandExecutor / CommandHistory / CommandQueue / 撤销重做） | 原设计基于"图层叠加式"绘图——每条指令对应画布上一次增量绘制操作，撤销/重做即弹出/压入操作栈。但切换到 AI 文生图模式后，每次生成的是完整替换的整张图片，而非可叠加的图层指令，原有的撤销栈语义不再适用。若要支持"撤销"，需要额外保存历史图片快照，受限于开发时间未实现。 |
+| 位置解析（positionResolver，"左上角/右下角"等） | AI 文生图模式下，画面构图信息已经融入 LLM 优化后的英文 Prompt 描述中（如 "a cat in the lower-left corner"），不再需要前端单独计算坐标传给绘图引擎，原模块被废弃。 |
+| 多指令连续解析（"然后/再/接着"切分） | 原 parser 支持把一句话切分成多条指令依次执行（适合本地图形绘制，耗时几乎为0）。但 AI 生图单次调用耗时 10-30 秒且产生费用，若一句话触发多次连续生成，体验和成本都不现实，因此简化为"一句话 = 一次生成"。 |
+| 参考图垫图（ref_img / ref_mode） | 通义万相 API 支持基于上一张生成图做"风格迁移"或"内容微调"（如"在刚才的基础上换个颜色"），可以提升连续编辑的一致性，但受限于开发时间未接入，目前每次生成都是从零开始的全新图像。 |
+| 颜色/形状的语音强制指定（如"画一个红色的猫"中的"红色"在 AI 模式下不保证生效） | AI 生成结果由模型自由发挥，颜色等细节词会写入 Prompt 但不保证 100% 精确遵循，这是文生图模型本身的特性，非工程实现问题。 |
+ 
+---
+ 
+## 四、已知限制
+ 
+- **生成耗时**：通义万相单次生成约 10-30 秒（异步轮询），网络较差时可能接近 60 秒超时上限
+- **浏览器兼容性**：语音识别功能仅支持 Chrome / Edge（基于 Chromium 的浏览器）
+- **API Key 类型限制**：必须使用阿里云百炼"按量付费"模式的 `sk-xxxxx` Key，详见 2.2 节
+- **生成结果不确定性**：同样的指令多次生成会得到不同的图片（除非固定 `seed` 参数）
+---
+ 
+## 五、目录结构说明
+ 
+```
+src/
+├── App.tsx                          # 主入口，管道调度
+├── style.css                        # 全局样式（含3D球体/音量动画）
+├── components/
+│   ├── Canvas/
+│   │   └── CanvasBoard.tsx           # 图片渲染到Canvas
+│   └── Voice/
+│       ├── VoiceController.tsx       # 玻璃球+输入条+麦克风 UI
+│       ├── useSpeechRecognition.ts   # 语音识别 Hook
+│       └── useAudioLevel.ts          # 实时音量检测 Hook
+├── types/
+│   └── status.ts                     # 全局状态类型
+server.js                              # 后端：LLM优化 + 万相生图 + 图片代理
+```
+ 
