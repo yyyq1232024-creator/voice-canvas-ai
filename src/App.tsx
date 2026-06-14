@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from "react"
 import { useSpeechRecognition } from "./components/Voice/useSpeechRecognition"
+import { useAudioLevel } from "./components/Voice/useAudioLevel"
 import VoiceController from "./components/Voice/VoiceController"
 import type { AppStatus } from "./types/status"
 import "./style.css"
@@ -53,9 +54,9 @@ function drawGeometry(canvas: HTMLCanvasElement, text: string) {
   if (!ctx) return
   const W = canvas.width, H = canvas.height
   ctx.clearRect(0, 0, W, H)
-  ctx.fillStyle   = "#0f172a"
+  ctx.fillStyle   = "#f5f4f1"
   ctx.fillRect(0, 0, W, H)
-  ctx.strokeStyle = "#ffffff"
+  ctx.strokeStyle = "#1d1d1f"
   ctx.lineWidth   = 4
 
   if (text.includes("圆")) {
@@ -80,10 +81,11 @@ function drawGeometry(canvas: HTMLCanvasElement, text: string) {
 // App
 // ─────────────────────────────────────────────────────────────────────────────
 function App() {
-  const canvasRef        = useRef<HTMLCanvasElement>(null)
-  const [status, setStatus]                     = useState<AppStatus>("idle")
-  const [errorMsg, setErrorMsg]                 = useState("")
-  const [optimizedPrompt, setOptimizedPrompt]   = useState("")
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [status, setStatus]                   = useState<AppStatus>("idle")
+  const [errorMsg, setErrorMsg]               = useState("")
+  const [optimizedPrompt, setOptimizedPrompt] = useState("")
+  const [hasImage, setHasImage]               = useState(false)
 
   // ─── 核心管道 ─────────────────────────────────────────────────────────────
   const handleVoiceCommand = useCallback(async (text: string) => {
@@ -95,6 +97,7 @@ function App() {
     // 纯几何：本地绘制，不走 AI
     if (GEO_PATTERN.test(text.trim())) {
       if (canvasRef.current) drawGeometry(canvasRef.current, text)
+      setHasImage(true)
       setStatus("done")
       return
     }
@@ -107,6 +110,7 @@ function App() {
       setOptimizedPrompt(prompt)
 
       if (canvasRef.current) await drawImageToCanvas(canvasRef.current, imageUrl)
+      setHasImage(true)
 
       setStatus("done")
     } catch (err) {
@@ -119,6 +123,9 @@ function App() {
 
   const { transcript, isListening, setProcessing } =
     useSpeechRecognition(handleVoiceCommand)
+
+  // 实时音量（只在监听时采集）
+  const audioLevel = useAudioLevel(isListening)
 
   const startVoice = useCallback(() => {
     setStatus("listening")
@@ -141,10 +148,17 @@ function App() {
       <div className="canvas-area">
         <canvas
           ref={canvasRef}
-          width={520}
-          height={520}
-          className="art-canvas"
+          width={1024}
+          height={1024}
+          className={`art-canvas ${hasImage ? "show" : ""}`}
         />
+
+        {!hasImage && status !== "generating" && (
+          <div className="canvas-placeholder">
+            <div className="placeholder-icon" />
+            <p>说出你想要的画面</p>
+          </div>
+        )}
 
         {status === "generating" && (
           <div className="loading-overlay">
@@ -167,6 +181,7 @@ function App() {
           transcript={displayText}
           isListening={isListening}
           status={status}
+          audioLevel={audioLevel}
           onStart={startVoice}
         />
       </div>
